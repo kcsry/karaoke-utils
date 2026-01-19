@@ -136,7 +136,7 @@ TYPST_PREAMBLE = """\
 #show heading: set block(sticky: true)
 #show heading.where(level: 1): it => {}
 #show heading.where(level: 2): set text(size: 10pt, weight: "bold")
-#show heading.where(level: 2): set block(below: 1em)
+#show heading.where(level: 2): set block(below: 0.7em)
 """
 
 
@@ -173,12 +173,20 @@ def generate_typst(xlsx_path, section_order=None):
             yield "#columns(3, gutter: 1cm)["
 
         for source, source_songs in group_songs_by_source(songs):
+            short_block = len(source_songs) < 30
+            if short_block:  # emit unbreakable block
+                yield "#block(breakable: false)["
+
+
             if source:
                 yield f"== {escape_typst(source)}"
                 yield ""
 
             for artist, title in source_songs:
                 yield format_song_typst(artist, title)
+
+            if short_block:
+                yield "]"  # end of unbreakable block
             yield ""
 
         if use_columns:
