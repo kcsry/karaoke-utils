@@ -140,6 +140,53 @@ TYPST_PREAMBLE = """\
 """
 
 
+def generate_alphabetical_index(all_songs):
+    """Generate an alphabetical index of all songs (yields lines)."""
+    if not all_songs:
+        return
+
+    # Sort by title (case-insensitive)
+    sorted_songs = sorted(all_songs, key=lambda s: s[0].lower())
+
+    yield "#pagebreak()"
+    yield ""
+    yield "= Hakemisto"
+    yield ""
+    yield "#set text(size: 6pt)"
+    yield "#set par(leading: 0.3em)"
+    yield "#columns(3, gutter: 0.25cm)["
+    yield "#table("
+    yield "  columns: (1.5fr, 1fr),"
+    yield "  stroke: none,"
+    yield "  inset: 1.5pt,"
+    yield "  row-gutter: 0pt,"
+    current_letter = None
+    last_title_artist = None
+    for title, artist, section in sorted_songs:
+        title_artist = str((title, artist)).lower()
+        if title_artist == last_title_artist:
+            continue  # Skip duplicates
+        last_title_artist = title_artist
+
+        # Get the first letter (uppercase) for grouping; non-alpha becomes "#"
+        first_char = title[0].upper() if title else ""
+        first_letter = first_char if first_char.isalpha() else "#"
+        if first_letter != current_letter:
+            current_letter = first_letter
+            yield f"  table.cell(colspan: 2, align: center, inset: 3pt, fill: luma(80%))[#text(weight: \"bold\")[{escape_typst(current_letter)}]],"
+
+
+        title_esc = escape_typst(title)
+        artist_esc = escape_typst(artist) if artist else ""
+        if artist_esc:
+            yield f"  [{title_esc}], [{artist_esc}],"
+        else:
+            yield f"  [{title_esc}], [],"
+    yield ")"
+    yield "]"
+    yield ""
+
+
 def generate_typst(xlsx_path, section_order=None):
     """Generate Typst document from XLSX file (yields lines)."""
     wb = load_workbook(xlsx_path)
@@ -147,6 +194,9 @@ def generate_typst(xlsx_path, section_order=None):
         section_order = DEFAULT_ORDER
 
     sheets_to_process = get_sheets_to_process(wb, section_order)
+
+    # Collect all songs for the alphabetical index
+    all_songs = []  # List of (title, artist, section)
 
     yield TYPST_PREAMBLE
 
@@ -156,6 +206,10 @@ def generate_typst(xlsx_path, section_order=None):
         songs = parse_sheet(ws)
         if not songs:
             continue
+
+        # Collect songs for the alphabetical index
+        for artist, title, source in songs:
+            all_songs.append((title, artist, sheet_name))
 
         # Page break before each section (except first)
         if first_section:
@@ -192,6 +246,9 @@ def generate_typst(xlsx_path, section_order=None):
         if use_columns:
             yield "]"
         yield ""
+
+    # Generate alphabetical index
+    yield from generate_alphabetical_index(all_songs)
 
 
 # --- Main ---
